@@ -5,6 +5,7 @@ CS343: Neural Networks
 Project 2: Multilayer Perceptrons
 '''
 import numpy as np
+import copy
 
 np.random.seed(0)
 
@@ -24,7 +25,7 @@ class MLP():
 
     NOTE: We will keep our bias weights separate from our feature weights to simplify computations.
     '''
-    def __init__(self, num_input_units, num_hidden_units, num_output_units):
+    def __init__(self, architecture):
         '''Constructor to build the model structure and intialize the weights. There are 3 layers:
         input layer, hidden layer, and output layer. Since the input layer represents each input
         sample, we don't learn weights for it.
@@ -32,28 +33,34 @@ class MLP():
         Parameters:
         -----------
         num_input_units: int. Num input features
-        num_hidden_units: int. Num hidden units
+        hidden_struct: list of number of nodes in each hidden layer
         num_output_units: int. Num output units. Equal to # data classes.
         '''
-        self.num_input_units = num_input_units
-        self.num_hidden_units = num_hidden_units
-        self.num_output_units = num_output_units
+        self.architecture = architecture
+        self.wts = [np.zeros((1,1))] * (len(self.architecture)-1)
+        self.b   = [np.zeros((1,1))] * (len(self.architecture)-1)
 
-        self.initialize_wts(num_input_units, num_hidden_units, num_output_units) 
+        self.net_in = [np.zeros((1,1))] * (len(self.architecture)-1)
+        self.net_act = [np.zeros((1,1))] * (len(self.architecture)-1)
+        self.dnet_in = [np.zeros((1,1))] * (len(self.architecture)-1)
+        self.dnet_act = [np.zeros((1,1))] * (len(self.architecture)-1)
+        self.dwts = [np.zeros((1,1))] * (len(self.architecture)-1)
+        self.db = [np.zeros((1,1))] * (len(self.architecture)-1)
+
+        self.initialize_wts(architecture)  
 
 
-    def get_y_wts(self):
+    def get_wts(self):
         '''Returns a copy of the hidden layer wts'''
-        return self.y_wts.copy()
+        return copy.deepcopy(self.wts)
 
-
-    def initialize_wts(self, M, H, C, std=0.1): 
+    def initialize_wts(self, architecture, std=0.1): 
         ''' Randomly initialize the hidden and output layer weights and bias term
 
         Parameters:
         -----------
         M: int. Num input features
-        H: int. Num hidden units
+        hidden_struct: list of number of nodes in each hidden layer
         C: int. Num output units. Equal to # data classes.
         std: float. Standard deviation of the normal distribution of weights
 
@@ -72,12 +79,12 @@ class MLP():
         '''
         # keep the random seed for debugging/test code purposes
         np.random.seed(0)
+        for layer_num in range(len(architecture)-1):
 
-        self.y_wts = np.random.normal(0, std, (M, H))
-        self.y_b = np.random.normal(0, std, (H,))
-
-        self.z_wts = np.random.normal(0, std, (H, C))
-        self.z_b = np.random.normal(0, std, (C,))
+            wts = np.random.normal(0, std, (architecture[layer_num], architecture[layer_num+1]))
+            b   = np.random.normal(0, std, (architecture[layer_num+1],))
+            self.wts[layer_num] = wts
+            self.b[layer_num] = b
 
         return
 
@@ -131,14 +138,19 @@ class MLP():
             Note: You can figure out the predicted class assignments without applying the
             softmax net activation function — it will not affect the most active neuron.
         '''
-        num_classes = self.z_wts.shape[1]
+        num_classes = self.architecture[-1]
         N = features.shape[0]
 
-        y_net_in = features @ self.y_wts + self.y_b
-        y_net_act = np.where(y_net_in < 0, 0, y_net_in)
-        z_net_in = y_net_act @ self.z_wts + self.z_b
+        self.net_in[0] = (features @ self.wts[0] + self.b[0])
+        self.net_act[0] = (np.where(self.net_in[0] < 0, 0, self.net_in[0]))
 
-        return np.argmax(z_net_in, axis=1)
+        for layer_num in range(1, len(self.architecture)-2):
+            self.net_in[layer_num] = (self.net_act[layer_num-1] @ self.wts[layer_num] + self.b[layer_num])
+            self.net_act[layer_num] = (np.where(self.net_in[layer_num] < 0, 0, self.net_in[layer_num]))
+
+        self.net_in[-1] = (self.net_act[-2] @ self.wts[-1] + self.b[-1])
+
+        return np.argmax(self.net_in[-1], axis=1)
 
     def forward(self, features, y, reg=0):
         '''
@@ -174,30 +186,37 @@ class MLP():
         - To regularize loss for multiple layers, you add the usual regularization to the loss
           from each set of weights (i.e. 2 in this case).
         '''
-        num_classes = self.z_wts.shape[1]
+        num_classes = self.architecture[-1]
         N = features.shape[0]
-        # y_one_hot = self.one_hot(y, num_classes) 
 
+        self.net_in[0] = (features @ self.wts[0] + self.b[0])
+        self.net_act[0] = (np.where(self.net_in[0] < 0, 0, self.net_in[0]))
+        for layer_num in range(1, len(self.architecture)-2):
+            self.net_in[layer_num] = (self.net_act[layer_num-1] @ self.wts[layer_num] + self.b[layer_num])
+            self.net_act[layer_num] = (np.where(self.net_in[layer_num] < 0, 0, self.net_in[layer_num]))
 
-        y_net_in = (features @ self.y_wts) + self.y_b
-
-        y_net_act = np.where(y_net_in < 0, 0, y_net_in)
-
-        z_net_in = (y_net_act @ self.z_wts) + self.z_b
+        self.net_in[-1] = (self.net_act[-2] @ self.wts[-1] + self.b[-1])
 
         # implement z_net_act using softmax activation
+        z_net_in = self.net_in[-1]
         z_net_in_reduced = z_net_in - np.max(z_net_in, keepdims=True, axis=1)
         exp_sum = np.sum(np.exp(z_net_in_reduced), keepdims=True, axis=1)
         z_net_act = np.exp(z_net_in_reduced) / exp_sum
+        self.net_act[-1] = (z_net_act)
         
         # implement cross-entropy loss function
         log_act = np.log(z_net_act)
         correct_loss = log_act[np.arange(N), y.astype(np.integer)]
-        loss = ((-1/N) * np.sum(correct_loss)) + (1/2) * reg * np.sum(np.square(self.y_wts)) + (1/2) * reg * np.sum(np.square(self.z_wts))
 
-        return y_net_in, y_net_act, z_net_in, z_net_act, loss
+        wts_sum_sq = 0 
+        for layer_vals in self.wts:
+            wts_sum_sq += np.sum(np.square(layer_vals))
 
-    def backward(self, features, y, y_net_in, y_net_act, z_net_in, z_net_act, reg=0):
+        loss = ((-1/N) * np.sum(correct_loss)) + 0.5 * reg * wts_sum_sq
+
+        return loss
+
+    def backward(self, features, y, reg=0):
         '''
         Performs a backward pass (output -> hidden -> input) during training to update the
         weights. This function implements the backpropogation algorithm.
@@ -234,34 +253,47 @@ class MLP():
         - Regularize each layer's weights like usual.
         '''
         # Loss -> z_net_act
-        dz_net_act = -1/(len(z_net_act) * z_net_act)
+
+        self.dnet_act[-1] = -1/(len(self.net_act[-1]) * self.net_act[-1])
 
         # z_net_act -> z_net_in
-        y_one_hot = self.one_hot(y, self.num_output_units)
-        dz_net_in = dz_net_act * z_net_act * (y_one_hot - z_net_act)
+        y_one_hot = self.one_hot(y, self.architecture[-1])
+        self.dnet_in[-1] = self.dnet_act[-1] * self.net_act[-1] * (y_one_hot - self.net_act[-1])
 
         # --------------------------------
         # TODO: Fill in gradients here
 
         # z_net_in -> z_wts
-        dz_wts = y_net_act.T @ dz_net_in + (reg * self.z_wts)
+        self.dwts[-1] = self.net_act[-2].T @  self.dnet_in[-1] + (reg * self.wts[-1])
 
         # z_net_in -> z_b
-        dz_b = np.sum(dz_net_in, axis=0) 
+        #dz_b = np.sum(dz_net_in, axis=0)
+        self.db[-1] = np.sum(self.dnet_in[-1],axis=0)
 
-        # z_wts -> y_net_act
-        dy_net_act = dz_net_in @ self.z_wts.T
 
-        # y_net_act -> y_net_in
-        dy_net_in = dy_net_act * np.where(y_net_act<=0, 0, 1)
+        for i in range((len(self.architecture)-3), 0, -1):
+            # z_wts -> y_net_act
+            #dy_net_act = dz_net_in @ self.z_wts.T
+            self.dnet_act[i] = self.dnet_in[i+1] @ self.wts[i+1].T
 
-        # y_net_in -> y_wts
-        dy_wts = features.T @ dy_net_in + (reg * self.y_wts)
+            # y_net_act -> y_net_in
+            #dy_net_in = dy_net_act * np.where(y_net_act<=0, 0, 1)
+            self.dnet_in[i] = self.dnet_act[i] * np.where(self.net_act[i]<=0, 0, 1)
 
-        # y_net_in -> y_b
-        dy_b = np.sum(dy_net_in, axis=0)
+            # y_net_in -> y_wts
+            #dy_wts = features.T @ dy_net_in + (reg * self.y_wts)
+            self.dwts[i] = self.net_act[i-1].T @ self.dnet_in[i] + (reg * self.wts[i])
 
-        return dy_wts, dy_b, dz_wts, dz_b
+            # y_net_in -> y_b
+            #dy_b = np.sum(dy_net_in, axis=0)
+            self.db[i] = np.sum(self.dnet_in[i], axis=0)
+
+        self.dnet_act[0] = self.dnet_in[1] @ self.wts[1].T
+        self.dnet_in[0] = self.dnet_act[0] * np.where(self.net_act[0]<=0, 0, 1)
+        self.dwts[0] = features.T @ self.dnet_in[0] + (reg * self.wts[0])
+        self.db[0] = np.sum(self.dnet_in[0], axis=0)
+
+        return
 
     def fit(self, features, y, x_validation, y_validation,
             resume_training=False, n_epochs=500, lr=0.0001, mini_batch_sz=256, reg=0, verbose=2):
@@ -314,7 +346,7 @@ class MLP():
         validation_acc_history = []
 
         if not resume_training:
-            self.initialize_wts(self.num_input_units, self.num_hidden_units, self.num_output_units)
+            self.initialize_wts(self.architecture)
 
         if verbose > 0:
             print(f'Starting to train network...There will be {n_epochs} epochs', end='')
@@ -326,31 +358,28 @@ class MLP():
             batch = features[idx, :]
             y_batch = y[idx]
 
-            y_net_in, y_net_act, z_net_in, z_net_act, loss = self.forward(batch, y_batch)
+            loss = self.forward(batch, y_batch)
 
-            dy_wts, dy_b, dz_wts, dz_b = self.backward(batch, y_batch, y_net_in, y_net_act, z_net_in, z_net_act)
+            self.backward(batch, y_batch)
 
-            self.y_wts = self.y_wts - dy_wts * lr
-            self.y_b = self.y_b - dy_b * lr
-
-            self.z_wts = self.z_wts - dz_wts * lr
-            self.z_b = self.z_b - dz_b * lr
+            for i in range(len(self.architecture)-1):
+                self.wts[i] -= self.dwts[i]*lr
+                self.b[i]   -= self.db[i]*lr
 
 
             if i % 100 == 0 and verbose > 0 and i > 0:
                 print(f'  Completed iter {i}/{n_iter}. Training loss: {loss_history[-1]:.2f}.')
 
-            if (i) % iter_per_epoch == 0:
-                loss_history.append(loss)
+            loss_history.append(loss)
 
-                train_acc = self.accuracy(y, self.predict(features))
-                val_acc = self.accuracy(y_validation, self.predict(x_validation))
-                
-                train_acc_history.append(train_acc)
-                validation_acc_history.append(val_acc)
-                
-                if verbose > 0:
-                    print(f"Completed epoch {i/iter_per_epoch}, train_acc: {train_acc}, validation_acc: {val_acc}")
+            train_acc = self.accuracy(y, self.predict(features))
+            val_acc = self.accuracy(y_validation, self.predict(x_validation))
+            
+            train_acc_history.append(train_acc)
+            validation_acc_history.append(val_acc)
+            
+            if verbose > 0:
+                print(f"Completed epoch {i/iter_per_epoch}, train_acc: {train_acc}, validation_acc: {val_acc}")
 
 
         if verbose > 0:
