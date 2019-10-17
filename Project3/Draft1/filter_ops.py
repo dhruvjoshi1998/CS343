@@ -6,6 +6,7 @@ CS343: Neural Networks
 Project 3: Convolutional neural networks
 '''
 import numpy as np
+import math
 
 
 def conv2_gray(img, kers, verbose=True):
@@ -140,7 +141,7 @@ def get_pooling_out_shape(img_dim, pool_size, strides):
     int. The size in pixels of the output of the image after max pooling is applied, in the dimension
         img_dim.
     '''
-    pass
+    return (math.floor((img_dim-pool_size)/strides))+1
 
 
 def max_pool(inputs, pool_size=2, strides=1, verbose=True):
@@ -176,7 +177,17 @@ def max_pool(inputs, pool_size=2, strides=1, verbose=True):
     out_x = get_pooling_out_shape(img_x, pool_size, strides)
     out_y = get_pooling_out_shape(img_y, pool_size, strides)
 
-    pass
+    if verbose: print(f"Max pooling: Img of shape ({img_x},{img_y}), with a pooling window of {pool_size} and stride of {strides} will result in an output of size ({out_x},{out_y})")
+
+    outputs = np.ndarray((out_x,out_y))
+
+    for i in range(out_y):
+        img_x = i*strides
+        for j in range(out_x):
+            img_j = j*strides
+            if verbose: print(f"Output at ({j},{i}) gets info from a max pool with top left at ({img_j},{img_x})")
+            outputs[j,i] = inputs[img_j:img_j+pool_size,img_x:img_x+pool_size]
+    return outputs
 
 
 def max_poolnn(inputs, pool_size=2, strides=1, verbose=True):
@@ -212,4 +223,18 @@ def max_poolnn(inputs, pool_size=2, strides=1, verbose=True):
     out_x = get_pooling_out_shape(img_x, pool_size, strides)
     out_y = get_pooling_out_shape(img_y, pool_size, strides)
 
-    pass
+    if verbose:
+        print(f"Max pooling: Img of shape ({img_x},{img_y}), with a pooling window of {pool_size} and stride of {strides} will result in an output of size ({out_x},{out_y})")
+        print(f"All {n_chans} channels will be preserved")
+
+    outputs = np.ndarray((mini_batch_sz,n_chans,out_x,out_y))
+
+    for n in range(mini_batch_sz):
+        for c in range(n_chans):
+            for i in range(out_y):
+                img_x = i*strides
+                for j in range(out_x):
+                    img_j = j*strides
+                    if verbose: print(f"Output at ({j},{i}) gets info from a max pool with top left at ({img_j},{img_x})")
+                    outputs[n,c,j,i] = inputs[n,c,img_j:img_j+pool_size,img_x:img_x+pool_size]
+    return outputs
