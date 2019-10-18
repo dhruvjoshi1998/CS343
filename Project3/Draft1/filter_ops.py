@@ -57,13 +57,10 @@ def conv2_gray(img, kers, verbose=True):
 	# Create Output Image
 	filteredImg = np.zeros([n_kers, img_y, img_x])
 
-	# Get image shape
-	p_img_y, p_img_x = padded_img.shape
-
 	# Apply Conv
 	for k in range(n_kers):
-		for j in range(0, img_y):
-			for i in range(0, img_x):
+		for j in range(img_y):
+			for i in range(img_x):
 				filteredImg[k, j, i] = np.sum(np.multiply(padded_img[j:j+ker_y, i:i+ker_x], kers_flipped[k,:,:]))
 	
 	return filteredImg
@@ -100,7 +97,31 @@ def conv2(img, kers, verbose=True):
 	n_chans, img_y, img_x = img.shape
 	n_kers, ker_x, ker_y = kers.shape
 
-	pass
+	# Flip the Kernel
+	kers_flipped = kers[:, ::-1, ::-1]
+
+	# Add Zero Padding
+	p = math.ceil((ker_x -1)/2)
+
+	cols = np.zeros((n_chans, img_y, p))
+	padded_img = np.append(cols, img, axis=2)
+	padded_img = np.append(padded_img, cols, axis=2)
+
+	rows = np.zeros((n_chans, p, padded_img.shape[2]))
+	padded_img = np.append(rows, padded_img, axis=1)
+	padded_img = np.append(padded_img, rows, axis=1)
+
+
+	# Create Output Image
+	filteredImg = np.zeros([n_kers, n_chans, img_y, img_x])
+
+	# Apply Conv
+	for k in range(n_kers):
+		for j in range(img_y):
+			for i in range(img_x):
+				filteredImg[k, 0:n_chans, j, i] = np.sum(np.multiply(padded_img[0:n_chans, j:j+ker_y, i:i+ker_x], kers_flipped[k,:,:]), axis=(1,2))
+	
+	return filteredImg
 
 
 def conv2nn(imgs, kers, bias, verbose=True):
@@ -157,12 +178,12 @@ def get_pooling_out_shape(img_dim, pool_size, strides):
 	int. The size in pixels of the output of the image after max pooling is applied, in the dimension
 		img_dim.
 	'''
-	pass
+	return (math.floor((img_dim-pool_size)/strides))+1
 
 
 def max_pool(inputs, pool_size=2, strides=1, verbose=True):
 	''' Does max pooling on inputs. Works on single grayscale images, so somewhat comparable to
-	`conv2_gray`.
+	conv2_gray.
 
 	Parameters:
 	-----------
@@ -176,7 +197,7 @@ def max_pool(inputs, pool_size=2, strides=1, verbose=True):
 	-----------
 	outputs: Input filtered with max pooling op. shape=(out_y, out_x)
 		NOTE: out_y, out_x determined by the output shape formula. The input spatial dimensions are
-		not preserved (unless pool_size=1...but what's the point of that? :)
+		not preserved (unless pool_size=1...but what's the point of that? 🙂
 
 	NOTE: There is no padding in the max-pooling operation.
 
@@ -185,7 +206,7 @@ def max_pool(inputs, pool_size=2, strides=1, verbose=True):
 	- You should be able to heavily leverage the structure of your conv2_gray code here
 	- Instead of defining a kernel, indexing strategically may be helpful
 	- You may need to keep track of and update indices for both the input and output images
-	- Overall, this should be a simpler implementation than `conv2_gray`
+	- Overall, this should be a simpler implementation than conv2_gray
 	'''
 	img_y, img_x = inputs.shape
 
@@ -193,7 +214,17 @@ def max_pool(inputs, pool_size=2, strides=1, verbose=True):
 	out_x = get_pooling_out_shape(img_x, pool_size, strides)
 	out_y = get_pooling_out_shape(img_y, pool_size, strides)
 
-	pass
+	if verbose: print(f"Max pooling: Img of shape ({img_y},{img_x}), with a pooling window of {pool_size} and stride of {strides} will result in an output of size ({out_y},{out_x})")
+
+	outputs = np.ndarray((out_y,out_x))
+
+	for i in range(out_y):
+		img_i = i*strides
+		for j in range(out_x):
+			img_j = j*strides
+			if verbose: print(f"Output at ({i},{j}) gets info from a max pool with top left at ({img_j},{img_i})")
+			outputs[i,j] = np.max(inputs[img_i:img_i+pool_size,img_j:img_j+pool_size])
+	return outputs
 
 
 def max_poolnn(inputs, pool_size=2, strides=1, verbose=True):
@@ -229,4 +260,18 @@ def max_poolnn(inputs, pool_size=2, strides=1, verbose=True):
 	out_x = get_pooling_out_shape(img_x, pool_size, strides)
 	out_y = get_pooling_out_shape(img_y, pool_size, strides)
 
-	pass
+	if verbose:
+		if verbose: print(f"Max pooling: Img of shape ({img_y},{img_x}), with a pooling window of {pool_size} and stride of {strides} will result in an output of size ({out_y},{out_x})")
+		print(f"All {n_chans} channels will be preserved")
+
+	outputs = np.ndarray((mini_batch_sz,n_chans,out_y,out_x))
+
+	for n in range(mini_batch_sz):
+		for c in range(n_chans):
+			for i in range(out_y):
+				img_i = i*strides
+				for j in range(out_x):
+					img_j = j*strides
+					if verbose: print(f"Output at ({i},{j}) gets info from a max pool with top left at ({img_j},{img_i})")
+					outputs[n,c,i,j] = np.max(inputs[n,c,img_i:img_i+pool_size,img_j:img_j+pool_size])
+	return outputs
