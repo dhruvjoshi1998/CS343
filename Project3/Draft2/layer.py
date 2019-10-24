@@ -65,17 +65,20 @@ class Layer():
 
         Parameters:
         -----------
-        y: ndarray. int-coded class assignments of training mini-batch. 0,...,numClasses-1
-            shape = (B,)
+        y: ndarray. int-coded class assignments of training mini-batch. 0,...,C-1
         num_classes: int. Number of unique output classes total
 
         Returns:
         -----------
         y_one_hot: One-hot coded class assignments.
-            e.g. if y = [0, 2, 1] and num_classes = 4 we have:
+            e.g. if y = [0, 2, 1] and num_classes (C) = 4 we have:
             [[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0]]
         '''
-        pass
+        N = y.shape[0]
+        y_one_hot = np.zeros((N, num_classes))
+        y_one_hot[np.arange(N), y] = 1
+
+        return y_one_hot
 
     def linear(self):
         '''Linear activation function: f(x) = x.
@@ -87,7 +90,7 @@ class Layer():
         -----------
         No return
         '''
-        pass
+        self.net_act = self.net_in
 
     def relu(self):
         '''Rectified linear activation function. f(x) is defined:
@@ -103,7 +106,8 @@ class Layer():
         -----------
         No return
         '''
-        pass
+        #y_net_act = np.where(y_net_in < 0, 0, y_net_in)
+        self.net_act = np.where(self.net_in < 0, 0, self.net_in)
 
     def softmax(self):
         '''Softmax activation function. See notebook for a refresher on the
@@ -120,7 +124,9 @@ class Layer():
         -----------
         No return
         '''
-        pass
+        net_in_reduced = self.net_in - np.max(self.net_in, keepdims=True, axis=1)
+        exp_sum = np.sum(np.exp(net_in_reduced), keepdims=True, axis=1)
+        self.net_act = np.exp(net_in_reduced) / exp_sum
 
     def loss(self, y):
         '''Computes the loss for this layer. Only should be called on the output
@@ -157,7 +163,13 @@ class Layer():
         -----------
         loss: float. Mean loss over the mini-batch.
         '''
-        pass
+
+        B = y.shape[0]
+
+        log_act = np.log(self.net_act)
+        correct_loss = log_act[np.arange(B), y.astype(np.integer)]
+        loss = ((-1/B) * np.sum(correct_loss))
+        return loss
 
     def forward(self, inputs):
         '''Computes the forward pass through this particular layer.
@@ -288,7 +300,14 @@ class Layer():
         Throw an error if the activation function string is not one that you
         implemented.
         '''
-        pass
+        if self.activation == "linear":
+            self.linear
+        elif self.activation == "softmax":
+            self.softmax
+        elif self.activation == "relu":
+            self.relu
+        else:
+            raise Exception("Error: Invalid activation (String self.activation in layer.py unrecognized).")
 
     def backward_netAct_to_netIn(self, d_upstream, y):
         '''Calculates the gradient `d_net_in` for the current layer.
@@ -316,10 +335,13 @@ class Layer():
         '''
         if self.activation == 'relu':
             # TODO: compute correct gradient here
+            pass
         elif self.activation == 'linear':
             # TODO: compute correct gradient here
+            pass
         elif self.activation == 'softmax':
             # TODO: compute correct gradient here
+            pass
         else:
             raise ValueError('Error! Unknown activation function ', self.activation)
         return d_net_in
@@ -432,7 +454,8 @@ class Conv2D(Layer):
         2. Scale the magnitude of the wts by `wt_scale`.
         3. Initialize this layer's bias in the same way. shape=(n_kers,)
         '''
-        pass
+        self.wts = np.random.normal(0, std, (M, H))
+        self.b = np.random.normal(0, std, (H,))
 
     def compute_net_in(self):
         '''Computes `self.net_in` via convolution.
