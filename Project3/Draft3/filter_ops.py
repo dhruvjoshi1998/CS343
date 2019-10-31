@@ -281,8 +281,6 @@ def max_poolnn(inputs, pool_size=2, strides=1, verbose=True):
 	'''
 	mini_batch_sz, n_chans, img_y, img_x = inputs.shape
 
-	print("Using stride of ",strides)
-
 	# Compute the output shape
 	out_x = get_pooling_out_shape(img_x, pool_size, strides)
 	out_y = get_pooling_out_shape(img_y, pool_size, strides)
