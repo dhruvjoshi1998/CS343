@@ -398,8 +398,9 @@ class Dense(Layer):
 
         Hint: You did this in Project 0
         '''
-        print(self.input.shape)
-        self.net_in = np.dot(self.input,self.wts)
+        B = self.input.shape[0]        
+        A = np.prod(self.input.shape[1:])
+        self.net_in = np.dot(np.reshape(self.input,(B,A)),self.wts)+self.b
 
     def backward_netIn_to_prevLayer_netAct(self, d_upstream):
         '''Computes the `dprev_net_act`, `d_wts`, `d_b` gradients for a Dense layer.

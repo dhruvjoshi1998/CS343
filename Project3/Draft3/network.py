@@ -9,6 +9,7 @@ import numpy as np
 
 import layer
 import optimizer
+import filter_ops
 
 np.random.seed(0)
 
@@ -207,7 +208,13 @@ class Network():
         2. Compute and get the weight regularization via `self.wt_reg_reduce()` (implement this next)
         4. Return the sum of the loss and the regularization term.
         '''
-        pass
+        temp_in = inputs
+        for l in self.layers:
+            temp_in = l.forward(temp_in)
+        loss = self.layers[-1].cross_entropy(y)
+        wt_reg = self.wt_reg_reduce()
+        return loss+wt_reg
+
 
     def wt_reg_reduce(self):
         '''Computes the loss weight regularization for all network layers that have weights
@@ -221,7 +228,10 @@ class Network():
         The network regularization `wt_reg` is simply the sum of all the regularization terms
         for each individual layer.
         '''
-        pass
+        wt_reg = 0
+        for i in self.wt_layer_inds:
+            wt_reg += 0.5 * self.layers[i].reg * np.sum(np.square(self.layers[i].wts))
+        return wt_reg
 
     def backward(self, y):
         '''Initiates the backward pass through all the layers of the network.
@@ -284,10 +294,34 @@ class ConvNet4(Network):
 
         # 1) Input convolutional layer
 
+        C = layer.Conv2D(number=0,name="Conv",n_kers=n_kers[0],ker_sz=ker_sz[0],n_chans=n_chans,wt_scale=wt_scale,activation="relu",reg=reg,verbose=False)
+
+        self.layers.append(C)
+
         # 2) 2x2 max pooling layer
+
+        P = layer.MaxPooling2D(number=1,name="Pool",pool_size=pooling_sizes[0],strides=pooling_strides[0],activation="linear",reg=reg,verbose=False)
+
+        self.layers.append(P)
 
         # 3) Dense layer
 
+        pool_net_act_size_x = filter_ops.get_pooling_out_shape(w, pooling_sizes[0], pooling_strides[0])
+        #print("pool_net_act_size_x: ",pool_net_act_size_x)
+        pool_net_act_size_y = filter_ops.get_pooling_out_shape(h, pooling_sizes[0], pooling_strides[0])
+        #print("pool_net_act_size_y: ",pool_net_act_size_y)
+        #print("n_kers: ",n_kers[0])
+        pool_net_act_size = pool_net_act_size_x * pool_net_act_size_x * n_kers[0]
+        #print("pool_net_act_size: ",pool_net_act_size)
+
+        D = layer.Dense(number=2,name="Dense",units=dense_interior_units[0],n_units_prev_layer=pool_net_act_size,wt_scale=wt_scale,activation="relu",reg=reg,verbose=False)
+
+        self.layers.append(D)
+
         # 4) Dense softmax output layer
 
-        # self.wt_layer_inds = ???
+        O = layer.Dense(number=3,name="Output",units=n_classes,n_units_prev_layer=dense_interior_units[0],wt_scale=wt_scale,activation="relu",reg=reg,verbose=False)
+
+        self.layers.append(O)
+
+        self.wt_layer_inds = [0,2,3]
