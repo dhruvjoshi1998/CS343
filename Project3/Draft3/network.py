@@ -213,7 +213,7 @@ class Network():
             temp_in = l.forward(temp_in)
         loss = self.layers[-1].cross_entropy(y)
         wt_reg = self.wt_reg_reduce()
-        return loss+wt_reg
+        return loss + wt_reg
 
 
     def wt_reg_reduce(self):
@@ -230,7 +230,7 @@ class Network():
         '''
         wt_reg = 0
         for i in self.wt_layer_inds:
-            wt_reg += 0.5 * self.layers[i].reg * np.sum(np.square(self.layers[i].wts))
+            wt_reg += 0.5 * self.reg * np.sum(np.square(self.layers[i].wts))
         return wt_reg
 
     def backward(self, y):
@@ -320,7 +320,7 @@ class ConvNet4(Network):
 
         # 4) Dense softmax output layer
 
-        O = layer.Dense(number=3,name="Output",units=n_classes,n_units_prev_layer=dense_interior_units[0],wt_scale=wt_scale,activation="relu",reg=reg,verbose=False)
+        O = layer.Dense(number=3,name="Output",units=n_classes,n_units_prev_layer=dense_interior_units[0],wt_scale=wt_scale,activation="softmax",reg=reg,verbose=False)
 
         self.layers.append(O)
 

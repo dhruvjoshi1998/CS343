@@ -169,6 +169,7 @@ class Layer():
         log_act = np.log(self.net_act)
         correct_loss = log_act[np.arange(B), y.astype(np.integer)]
         loss = ((-1/B) * np.sum(correct_loss))
+        correct_acts = self.net_act(np.arange(self.net_act.shape[0],y))
         return loss
 
     def forward(self, inputs):
@@ -191,7 +192,7 @@ class Layer():
         self.input = inputs
         self.compute_net_in()
         self.compute_net_act()
-        return self.net_act.copy()
+        return np.copy(self.net_act)
 
     def backward(self, d_upstream, y):
         '''Do the backward pass through this layer.
