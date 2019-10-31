@@ -209,7 +209,9 @@ class Network():
         4. Return the sum of the loss and the regularization term.
         '''
         temp_in = inputs
+        print(f"You have {len(self.layers)} layers")
         for l in self.layers:
+            print("Doing a layer")
             temp_in = l.forward(temp_in)
         loss = self.layers[-1].cross_entropy(y)
         wt_reg = self.wt_reg_reduce()
