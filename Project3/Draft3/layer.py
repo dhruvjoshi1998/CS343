@@ -223,6 +223,9 @@ class Layer():
         # with respect to the last layer's netAct function (softmax)
         if d_upstream is None:
             d_upstream = self.compute_dlast_net_act()
+        self.d_net_in = self.backward_netAct_to_netIn(d_upstream,y)
+        self.dprev_net_act, self.d_wts, self.d_b = self.backward_netIn_to_prevLayer_netAct(d_upstream)
+        
 
     def compute_dlast_net_act(self):
         '''Computes the gradient of the loss function with respect to the last layer's netAct.
