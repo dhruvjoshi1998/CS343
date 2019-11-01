@@ -342,13 +342,14 @@ class Layer():
         '''
         if self.activation == 'relu':
             # TODO: compute correct gradient here
-            pass
+            d_net_in = d_upstream * np.where((self.net_act == 0),0,1)
         elif self.activation == 'linear':
             # TODO: compute correct gradient here
-            pass
+            d_net_in = d_upstream
         elif self.activation == 'softmax':
             # TODO: compute correct gradient here
-            pass
+            y_one_hot = self.one_hot(y)
+            d_net_in = d_upstream * self.net_act * (y_one_hot - self.net_act)
         else:
             raise ValueError('Error! Unknown activation function ', self.activation)
         return d_net_in
@@ -434,7 +435,52 @@ class Dense(Layer):
             Shape errors will frequently show up at this backprop stage, one layer down.
         Regularize your wts
         '''
-        pass
+        dprev_net_act, d_wts, d_b = None
+
+        '''
+        ********************FROM MLP, FOR REFERENCE********************
+
+        # Loss -> z_net_act
+        dz_net_act = -1/(len(z_net_act) * z_net_act)
+
+        # z_net_act -> z_net_in
+        y_one_hot = self.one_hot(y, self.num_output_units)
+        dz_net_in = dz_net_act * z_net_act * (y_one_hot - z_net_act)
+
+        # z_net_in -> z_wts
+        dz_wts = y_net_act.T @ dz_net_in + (reg * self.z_wts)
+
+        # z_net_in -> z_b
+        dz_b = np.sum(dz_net_in, axis=0) 
+
+        # z_wts -> y_net_act
+        dy_net_act = dz_net_in @ self.z_wts.T
+
+        # y_net_act -> y_net_in
+        dy_net_in = dy_net_act * np.where(y_net_act<=0, 0, 1)
+
+        # y_net_in -> y_wts
+        dy_wts = features.T @ dy_net_in + (reg * self.y_wts)
+
+        # y_net_in -> y_b
+        dy_b = np.sum(dy_net_in, axis=0)
+
+        '''
+
+        
+        '''
+        # net_in -> wts
+        d_wts = y_net_act.T @ dz_net_in + (reg * self.z_wts)
+
+        # net_in -> b
+        d_b = np.sum(dz_net_in, axis=0) 
+
+        # wts -> prev_net_act
+        dprev_net_act = dz_net_in @ self.z_wts.T
+        '''
+
+        return (dprev_net_act, d_wts, d_b)
+        
 
 
 class Conv2D(Layer):
