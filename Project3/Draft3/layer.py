@@ -224,7 +224,7 @@ class Layer():
             d_upstream = self.compute_dlast_net_act()
 
         d_net_in = self.backward_netAct_to_netIn(d_upstream, y)
-        dprev_net_act, self.d_wts, self.d_b = self.backward_netIn_to_prevLayer_netAct(d_upstream)
+        dprev_net_act, self.d_wts, self.d_b = self.backward_netIn_to_prevLayer_netAct(d_net_in)
         return dprev_net_act, self.d_wts, self.d_b
 
     def compute_dlast_net_act(self):
@@ -439,57 +439,13 @@ class Dense(Layer):
             Shape errors will frequently show up at this backprop stage, one layer down.
         Regularize your wts
         '''
-        dprev_net_act, d_wts, d_b = None, None, None
+        # dprev_net_act, d_wts, d_b = None, None, None
         d_wts = np.reshape(self.input, (self.input.shape[0], np.prod(self.input.shape[1:]))).T @ d_upstream + self.reg*self.wts
-        d_b = np.sum(d_upstream, axis=0)
-        dprev_net_act = d_upstream@self.wts.T
-        dprev_net_act = np.reshape(dprev_net_act,self.input.shape)
+        d_b = sum(d_upstream, 0)
+        dprev_net_act = d_upstream @ self.wts.T
+        dprev_net_act = np.reshape(dprev_net_act, self.input.shape)
 
         return dprev_net_act, d_wts, d_b
-
-        '''
-        ********************FROM MLP, FOR REFERENCE********************
-
-        # Loss -> z_net_act
-        dz_net_act = -1/(len(z_net_act) * z_net_act)
-
-        # z_net_act -> z_net_in
-        y_one_hot = self.one_hot(y, self.num_output_units)
-        dz_net_in = dz_net_act * z_net_act * (y_one_hot - z_net_act)
-
-        # z_net_in -> z_wts
-        dz_wts = y_net_act.T @ dz_net_in + (reg * self.z_wts)
-
-        # z_net_in -> z_b
-        dz_b = np.sum(dz_net_in, axis=0) 
-
-        # z_wts -> y_net_act
-        dy_net_act = dz_net_in @ self.z_wts.T
-
-        # y_net_act -> y_net_in
-        dy_net_in = dy_net_act * np.where(y_net_act<=0, 0, 1)
-
-        # y_net_in -> y_wts
-        dy_wts = features.T @ dy_net_in + (reg * self.y_wts)
-
-        # y_net_in -> y_b
-        dy_b = np.sum(dy_net_in, axis=0)
-
-        '''
-
-        
-        '''
-        # net_in -> wts
-        d_wts = y_net_act.T @ dz_net_in + (reg * self.z_wts)
-
-        # net_in -> b
-        d_b = np.sum(dz_net_in, axis=0) 
-
-        # wts -> prev_net_act
-        dprev_net_act = dz_net_in @ self.z_wts.T
-        '''
-
-        return (dprev_net_act, d_wts, d_b)
         
 
 
@@ -716,7 +672,6 @@ class MaxPooling2D(Layer):
             exit()
 
         dprev_net_act = np.zeros(self.input.shape)
-
         for img_index in range(mini_batch_sz):
             for d in range(n_chans):
                 for y in range(out_y):
