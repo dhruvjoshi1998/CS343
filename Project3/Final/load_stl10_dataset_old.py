@@ -153,33 +153,21 @@ def resize_images(imgs, scale_fact=3):
         print(f'preprocess_images: No resizing to do, scale factor = {scale_fact}.')
         return imgs
 
-    print(f'Resizing {len(imgs)} images to {HEIGHT//scale_fact}x{WIDTH//scale_fact}...', end='')
+    print(f'Resizing {len(imgs)} images to {HEIGHT//3}x{WIDTH//3}...', end='')
 
     num_imgs = imgs.shape[0]
-    scaled_imgs = np.zeros([num_imgs, HEIGHT//scale_fact, WIDTH//scale_fact, DEPTH], dtype=np.uint8)
+    scaled_imgs = np.zeros([num_imgs, HEIGHT//3, WIDTH//3, DEPTH], dtype=np.uint8)
 
     for i in range(num_imgs):
         currImg = Image.fromarray(imgs[i, :, :, :])
-        currImg = currImg.resize(size=(HEIGHT//scale_fact, WIDTH//scale_fact))
+        currImg = currImg.resize(size=(HEIGHT//3, WIDTH//3))
         scaled_imgs[i, :, :, :] = np.array(currImg, dtype=np.uint8)
 
     print('Done!')
     return scaled_imgs
 
 
-def purge_cached_dataset():
-    CACHE_DIR = './numpy'
-    img_cache_filename = os.path.join(CACHE_DIR, 'images.npy')
-    label_cache_filename = os.path.join(CACHE_DIR, 'labels.npy')
-
-    try:
-        os.remove(img_cache_filename)
-        os.remove(label_cache_filename)
-    except OSError:
-        pass
-
-
-def load(save_imgs_to_disk=False, cache_binaries_to_disk=True, scale_fact=3):
+def load(save_imgs_to_disk=False, cache_binaries_to_disk=True):
     DATA_URL = 'http://ai.stanford.edu/~acoates/stl10/stl10_binary.tar.gz'
 
     # local path to the directory with the data
@@ -219,7 +207,7 @@ def load(save_imgs_to_disk=False, cache_binaries_to_disk=True, scale_fact=3):
     print(f'Labels are: {labels.shape}')
 
     # resize images to desired resolution, optionally save them to disk
-    images = resize_images(images, scale_fact=scale_fact)
+    images = resize_images(images)
 
     # Save images to disk in PNG format
     if save_imgs_to_disk:
