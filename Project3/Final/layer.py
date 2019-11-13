@@ -409,6 +409,7 @@ class Dense(Layer):
         '''
         B = self.input.shape[0]        
         A = np.prod(self.input.shape[1:])
+        #print("Layer: ",self.name,"\tInput shape: ",self.input.shape,"\twts shape: ",self.wts.shape)
         self.net_in = np.dot(np.reshape(self.input,(B,A)),self.wts)+self.b
 
     def backward_netIn_to_prevLayer_netAct(self, d_upstream):
@@ -446,9 +447,17 @@ class Dense(Layer):
         dprev_net_act = np.reshape(dprev_net_act, self.input.shape)
 
         return dprev_net_act, d_wts, d_b
+
+    def save_model(self):
+        #activation,reg,verbose)
+        layer_info = "Dense@"
+        layer_info += self.activation+'@'
+        layer_info += str(self.reg)+"@"
+        layer_info += str(self.verbose)+"@"
+        layer_info += str(self.wts.tolist())+"@"
+        layer_info += str(self.b.tolist())
+        return layer_info
         
-
-
 class Conv2D(Layer):
     '''Convolutational layer that does a 2D spatial convolution on input `images`.
     Each neuron in the layer has receptive field ('kernels' or 'filters') weights
@@ -583,6 +592,16 @@ class Conv2D(Layer):
 
         return dprev_net_act, d_wts, d_b
 
+    def save_model(self):
+        #activation,reg,verbose)
+        layer_info = "Conv2D@"
+        layer_info += self.activation+'@'
+        layer_info += str(self.reg)+"@"
+        layer_info += str(self.verbose)+"@"
+        layer_info += str(self.wts.tolist())+"@"
+        layer_info += str(self.b.tolist())
+        return layer_info
+
 
 class MaxPooling2D(Layer):
     '''Max pooling layer. 2D because we pool over the spatial dimensions of the
@@ -690,3 +709,15 @@ class MaxPooling2D(Layer):
         '''Converts a linear index to a subscript index based on the window size sz
         '''
         return np.unravel_index(linear_ind, sz)
+
+    def save_model(self):
+        #pool_size,strides,activation,reg,verbose
+        layer_info = "MaxPooling2D@"
+        layer_info += str(self.pool_size)+'@'
+        layer_info += str(self.strides)+'@'
+        layer_info += self.activation+'@'
+        layer_info += str(self.reg)+"@"
+        layer_info += str(self.verbose)
+        return layer_info
+
+

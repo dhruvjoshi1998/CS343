@@ -30,10 +30,12 @@ class Optimizer():
         '''
         if name.lower() == 'sgd':
             return SGD(**kwargs)
-        elif name.lower() == 'sgd_momentum':
+        elif name.lower() == 'sgd-m' or name.lower() == 'sgd-momentum' or name.lower() == 'sgd_momentum':
             return SGD_Momentum(**kwargs)
         elif name.lower() == 'adam':
             return Adam(**kwargs)
+        elif name.lower() == "nag":
+            return NAG(**kwargs)
         else:
             raise ValueError('Unknown optimizer name!')
 
@@ -148,4 +150,16 @@ class Adam(Optimizer):
         u = self.v / (1 - self.beta2**self.t)
         self.wts = self.wts - (self.lr*n)/(u**(0.5) + self.eps)
 
+        return self.wts.copy()
+
+
+class NAG(Optimizer):
+    def __init__(self, lr=0.001, gamma=0.9):
+        self.lr = lr
+        self.gamma = gamma
+        self.v = 0
+
+    def update_weights(self):
+        self.v = self.gamma * self.v + self.lr * self.d_wts * (self.wts - self.gamma*self.v)
+        self.wts -= self.v
         return self.wts.copy()
