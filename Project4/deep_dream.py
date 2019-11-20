@@ -231,12 +231,11 @@ class DeepDream():
 		return np_img
 
 class Nightmare(DeepDream):
-	def __init__(self, net, y_label, fake_y_label):
-		super().__init__(net, [len(net.layers)-1], [layer.name for layer in net.layers[1:]], [np.argmax(y_label)])
-		self.optimize = fake_y_label
+	def __init__(self, net):
+		super().__init__(net, [len(net.layers)-1], [layer.name for layer in net.layers[1:]], [0])
 
-	def forward(self, image, label, verbose=False):
-	    image = tf.cast(image, tf.float32)
+
+	def image_gradient(self, image, label, verbose=False):
 	    
 	    with tf.GradientTape() as tape:
 	        tape.watch(image)
@@ -251,40 +250,40 @@ class Nightmare(DeepDream):
 
 	def wrong(self, img, real_label, n_iter = 5, step_sz=0.01):
 		for i in range(n_iter):
-		    changes = self.forward(img, real_label).numpy()
+		    changes = self.image_gradient(img, real_label)
 		    img = img + changes * step_sz
 
 		return img
 
 	def fake(self, img, fake_label, n_iter = 5, step_sz=0.01):
 		for i in range(n_iter):
-		    changes = self.forward(img, fake_label).numpy()
+		    changes = self.image_gradient(img, fake_label)
 		    img = img - changes * step_sz
 
 		return img
 
 	def minimal_wrong(self, img, real_label, step_sz=0.01):
 		i = 0
-		while np.asarray(real_label).argmax() != self.net(img).numpy().argmax():
-		    changes = self.forward(img, real_label).numpy()
+		while np.asarray(real_label).argmax() == self.net(img).numpy().argmax():
+		    changes = self.image_gradient(img, real_label).numpy()
 		    img = img + changes * step_sz
 		    i += 1
 		    if i == 100:
 		    	print("failed to fool image, exiting")
-		    	return img
+		    	return i, img
 
-		return img
+		return i, img
 
-	def minimal_fake(self, img, fake_label, step_sz=0.01):
-		i = 0
-		while np.asarray(fake_label).argmax() != self.net(img).numpy().argmax():
-		    changes = self.forward(img, fake_label).numpy()
-		    img = img - changes * step_sz
-		    i += 1
-		    if i == 100:
-		    	print("failed to fake image, exiting")
-		    	return img
-
-		return img
+# 	def minimal_fake(self, img, fake_label, step_sz=0.01):
+# 		i = 0
+# 		while np.asarray(fake_label).argmax() != self.net(img).numpy().argmax():
+# 		    changes = self.image_gradient(img, fake_label).numpy()
+# 		    img = img - changes * step_sz
+# 		    i += 1
+# 		    if i == 100:
+# 		    	print("failed to fake image, exiting")
+# 		    	return img
+# 
+# 		return img
 
 
