@@ -87,24 +87,6 @@ class DeepDream():
 					temp = tf.gather(layer_netAct, self.filter_inds, axis = 3)
 
 				avg_netAct_per_layer.append(tf.math.reduce_mean(temp))
-		
-
-		# if len(self.filter_inds) == 0:
-		# 		netActs = tf.gather(netActs, self.selected_layer_inds, axis=3)
-		# else:
-		# 		netActs = tf.gather(netActs, [self.selected_layer_inds, self.filter_inds])
-
-
-		# print(netActs.shape)
-
-
-		# for i, layer in enumerate(netActs):
-		# 	if verbose:
-		# 		print("Averaging netAct value of layer:", self.all_layer_names[self.selected_layer_inds[i]])
-
-		# netActs = tf.math.reduce_mean(netActs, axis=(0,1,2))
-
-		# print(netActs.shape)
 
 		return avg_netAct_per_layer
 
@@ -140,7 +122,6 @@ class DeepDream():
 		grads = []
 		for layer_netAct in netActs:
 			grad = g.gradient(layer_netAct, img_tf)
-			# print(grad)
 			if normalized:
 				grad = grad/(tf.math.sqrt(tf.math.reduce_mean(tf.math.square(grad))) + eps)
 
@@ -174,6 +155,7 @@ class DeepDream():
 			if verbose:
 				print("Current iteration of gradient ascent:", i)
 			grads = self.image_gradient(img_tf)
+			print(grads)
 			for j in range(len(self.selected_layer_inds)):
 				img_tf = img_tf + step_sz * grads[j]
 
@@ -247,3 +229,62 @@ class DeepDream():
 		np_img = (np_img - np.min(np_img))/(np.max(np_img)-np.min(np_img))
 
 		return np_img
+
+class Nightmare(DeepDream):
+	def __init__(self, net, y_label, fake_y_label):
+		super().__init__(net, [len(net.layers)-1], [layer.name for layer in net.layers[1:]], [np.argmax(y_label)])
+		self.optimize = fake_y_label
+
+	def forward(self, image, label, verbose=False):
+	    image = tf.cast(image, tf.float32)
+	    
+	    with tf.GradientTape() as tape:
+	        tape.watch(image)
+	        prediction = self.net(image)
+	        loss = tf.keras.losses.MSE(label, prediction)
+	    
+	    gradient = tape.gradient(loss, image)
+	    
+	    signed_grad = tf.sign(gradient)
+	    
+	    return signed_grad
+
+	def wrong(self, img, real_label, n_iter = 5, step_sz=0.01):
+		for i in range(n_iter):
+		    changes = self.forward(img, real_label).numpy()
+		    img = img + changes * step_sz
+
+		return img
+
+	def fake(self, img, fake_label, n_iter = 5, step_sz=0.01):
+		for i in range(n_iter):
+		    changes = self.forward(img, fake_label).numpy()
+		    img = img - changes * step_sz
+
+		return img
+
+	def minimal_wrong(self, img, real_label, step_sz=0.01):
+		i = 0
+		while np.asarray(real_label).argmax() != self.net(img).numpy().argmax():
+		    changes = self.forward(img, real_label).numpy()
+		    img = img + changes * step_sz
+		    i += 1
+		    if i == 100:
+		    	print("failed to fool image, exiting")
+		    	return img
+
+		return img
+
+	def minimal_fake(self, img, fake_label, step_sz=0.01):
+		i = 0
+		while np.asarray(fake_label).argmax() != self.net(img).numpy().argmax():
+		    changes = self.forward(img, fake_label).numpy()
+		    img = img - changes * step_sz
+		    i += 1
+		    if i == 100:
+		    	print("failed to fake image, exiting")
+		    	return img
+
+		return img
+
+
