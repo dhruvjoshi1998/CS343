@@ -169,6 +169,7 @@ class Layer():
         log_act = np.log(self.net_act)
         correct_loss = log_act[np.arange(B), y.astype(np.integer)]
         loss = ((-1/B) * np.sum(correct_loss))
+        correct_acts = self.net_act(np.arange(self.net_act.shape[0],y))
         return loss
 
     def forward(self, inputs):
@@ -222,10 +223,9 @@ class Layer():
         # with respect to the last layer's netAct function (softmax)
         if d_upstream is None:
             d_upstream = self.compute_dlast_net_act()
-
-        d_net_in = self.backward_netAct_to_netIn(d_upstream, y)
-        dprev_net_act, self.d_wts, self.d_b = self.backward_netIn_to_prevLayer_netAct(d_net_in)
-        return dprev_net_act, self.d_wts, self.d_b
+        self.d_net_in = self.backward_netAct_to_netIn(d_upstream,y)
+        self.dprev_net_act, self.d_wts, self.d_b = self.backward_netIn_to_prevLayer_netAct(d_upstream)
+        
 
     def compute_dlast_net_act(self):
         '''Computes the gradient of the loss function with respect to the last layer's netAct.
@@ -340,20 +340,16 @@ class Layer():
         2. Implement gradient for softmax
 
         '''
-        d_net_act = None
         if self.activation == 'relu':
-            net_act = self.net_act.copy()
-            net_act[net_act > 0] = 1
-            d_net_in = d_upstream * net_act
-
+            # TODO: compute correct gradient here
+            d_net_in = d_upstream * np.where((self.net_act == 0),0,1)
         elif self.activation == 'linear':
-            d_net_in = d_upstream.copy()
-
+            # TODO: compute correct gradient here
+            d_net_in = d_upstream
         elif self.activation == 'softmax':
-            d_net_act = -1/(len(self.net_act) * self.net_act)
-            y_one_hot = self.one_hot(y, self.net_act.shape[1])
+            # TODO: compute correct gradient here
+            y_one_hot = self.one_hot(y)
             d_net_in = d_upstream * self.net_act * (y_one_hot - self.net_act)
-
         else:
             raise ValueError('Error! Unknown activation function ', self.activation)
         return d_net_in
@@ -439,13 +435,51 @@ class Dense(Layer):
             Shape errors will frequently show up at this backprop stage, one layer down.
         Regularize your wts
         '''
-        # dprev_net_act, d_wts, d_b = None, None, None
-        d_wts = np.reshape(self.input, (self.input.shape[0], np.prod(self.input.shape[1:]))).T @ d_upstream + self.reg*self.wts
-        d_b = sum(d_upstream, 0)
-        dprev_net_act = d_upstream @ self.wts.T
-        dprev_net_act = np.reshape(dprev_net_act, self.input.shape)
+        dprev_net_act, d_wts, d_b = None
 
-        return dprev_net_act, d_wts, d_b
+        '''
+        ********************FROM MLP, FOR REFERENCE********************
+
+        # Loss -> z_net_act
+        dz_net_act = -1/(len(z_net_act) * z_net_act)
+
+        # z_net_act -> z_net_in
+        y_one_hot = self.one_hot(y, self.num_output_units)
+        dz_net_in = dz_net_act * z_net_act * (y_one_hot - z_net_act)
+
+        # z_net_in -> z_wts
+        dz_wts = y_net_act.T @ dz_net_in + (reg * self.z_wts)
+
+        # z_net_in -> z_b
+        dz_b = np.sum(dz_net_in, axis=0) 
+
+        # z_wts -> y_net_act
+        dy_net_act = dz_net_in @ self.z_wts.T
+
+        # y_net_act -> y_net_in
+        dy_net_in = dy_net_act * np.where(y_net_act<=0, 0, 1)
+
+        # y_net_in -> y_wts
+        dy_wts = features.T @ dy_net_in + (reg * self.y_wts)
+
+        # y_net_in -> y_b
+        dy_b = np.sum(dy_net_in, axis=0)
+
+        '''
+
+        
+        '''
+        # net_in -> wts
+        d_wts = y_net_act.T @ dz_net_in + (reg * self.z_wts)
+
+        # net_in -> b
+        d_b = np.sum(dz_net_in, axis=0) 
+
+        # wts -> prev_net_act
+        dprev_net_act = dz_net_in @ self.z_wts.T
+        '''
+
+        return (dprev_net_act, d_wts, d_b)
         
 
 
@@ -670,21 +704,7 @@ class MaxPooling2D(Layer):
         if n_chans != n_chans_d:
             print(f'n_chans do not match! {n_chans} != {n_chans_d}')
             exit()
-
-        dprev_net_act = np.zeros(self.input.shape)
-        for img_index in range(mini_batch_sz):
-            for d in range(n_chans):
-                for y in range(out_y):
-                    for x in range(out_x):
-                        max_flat_idx = np.argmax(self.input[img_index, d, y*self.strides:y*self.strides+self.pool_size, x*self.strides:x*self.strides+self.pool_size])
-                        max_idx = np.unravel_index(max_flat_idx, (self.pool_size, self.pool_size))
-                        y_win, x_win = max_idx
-                        max_x = x_win + x*self.strides
-                        max_y = y_win + y*self.strides
-
-                        dprev_net_act[img_index,d,max_y,max_x] = d_upstream[img_index,d,y,x]
-
-        return dprev_net_act, None, None    
+        pass
 
     def ind2sub(self, linear_ind, sz):
         '''Converts a linear index to a subscript index based on the window size sz
